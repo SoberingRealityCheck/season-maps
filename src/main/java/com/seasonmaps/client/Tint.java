@@ -5,15 +5,15 @@ import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.Holder;
+import net.minecraft.client.renderer.BiomeColors;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.ARGB;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.material.MapColor;
-import sereneseasons.api.season.ISeasonColorProvider;
+import sereneseasons.api.season.ISeasonState;
 import sereneseasons.api.season.SeasonHelper;
-import sereneseasons.util.SeasonColorUtil;
 
 /**
  * Turns a map pixel (vanilla color byte + biome id) into a season-tinted ARGB int.
@@ -37,11 +37,15 @@ public final class Tint {
 
     private Tint() {}
 
-    /** Changes when the sub-season does. -1 = no seasons, no level yet. */
+    /**
+     * Changes when the sub-season or the tropical season does (Serene colors tropical
+     * biomes from the tropical season). -1 = no seasons, no level yet.
+     */
     public static int seasonKey() {
         ClientLevel level = Minecraft.getInstance().level;
         if (level == null || !SeasonHelper.hasSeasons(level)) return -1;
-        return SeasonHelper.getSeasonState(level).getSubSeason().ordinal();
+        ISeasonState state = SeasonHelper.getSeasonState(level);
+        return state.getSubSeason().ordinal() * 16 + state.getTropicalSeason().ordinal();
     }
 
     /** ARGB for one pixel. biome may be null (unknown), which gives plain vanilla. */
@@ -78,15 +82,17 @@ public final class Tint {
                 .get(ResourceKey.create(Registries.BIOME, Identifier.parse(biomeId))).orElse(null);
         if (holder == null) return new int[0];
 
+        // Same source of truth as the world renderer: the game's own ColorResolvers.
+        // Serene Seasons replaces BiomeColors.GRASS_COLOR_RESOLVER and FOLIAGE_COLOR_RESOLVER
+        // with its own at startup, so reading them here gets its tropical-vs-normal season
+        // choice and other mods' overrides for free. Calling SeasonColorUtil ourselves
+        // (what an earlier version did) skipped all of that.
+        // Hack: x = z = 0. The swamp grass modifier is noise on x/z, so a whole swamp gets
+        // one shade. Fine for a map.
         Biome biome = holder.value();
-        int grass = biome.getGrassColor(0, 0);
-        int foliage = biome.getFoliageColor();
-        int water = biome.getWaterColor();
-        if (SeasonHelper.hasSeasons(level)) {
-            ISeasonColorProvider season = SeasonHelper.getSeasonState(level).getSubSeason();
-            grass = SeasonColorUtil.applySeasonalGrassColouring(season, holder, grass);
-            foliage = SeasonColorUtil.applySeasonalFoliageColouring(season, holder, foliage);
-        }
+        int grass = BiomeColors.GRASS_COLOR_RESOLVER.getColor(biome, 0, 0);
+        int foliage = BiomeColors.FOLIAGE_COLOR_RESOLVER.getColor(biome, 0, 0);
+        int water = BiomeColors.WATER_COLOR_RESOLVER.getColor(biome, 0, 0);
         return new int[] {grass & 0xFFFFFF, foliage & 0xFFFFFF, water & 0xFFFFFF};
     }
 
