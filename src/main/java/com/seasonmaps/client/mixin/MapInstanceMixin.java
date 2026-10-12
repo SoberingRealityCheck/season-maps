@@ -44,7 +44,7 @@ public abstract class MapInstanceMixin {
         NativeImage pixels = texture.getPixels();
         for (int y = 0; y < 128; y++) {
             for (int x = 0; x < 128; x++) {
-                pixels.setPixel(x, y, Tint.pixel(data.colors[x + y * 128], layer.biomeAt(x, y)));
+                pixels.setPixel(x, y, Tint.pixel(data.colors[x + y * 128], layer.biomeAt(x, y), layer.blockAt(x, y)));
             }
         }
         texture.upload();

@@ -5,13 +5,18 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.seasonmaps.Layer;
 import com.seasonmaps.LayerStore;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.MapItem;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
 /**
@@ -43,9 +48,33 @@ public abstract class MapItemMixin {
                     .map(key -> key.identifier().toString()).orElse(null);
             if (biome != null) {
                 Layer layer = LayerStore.of(server.getServer(), data);
-                layer.set(imgX, imgY, biome);
+                layer.set(imgX, imgY, biome, tintableBlock(level, chunk, x, y, z, color));
             }
         }
         return changed;
+    }
+
+    /**
+     * The surface block's id, but only when it is what picked this pixel's color and it is a
+     * grass or plant color (the ones the client may tint). Otherwise null.
+     *
+     * Same walk down as vanilla: skip blocks whose map color is NONE. At map scale above 0 vanilla
+     * votes across a square of blocks and we only look at its corner, so the corner block can
+     * disagree with the winning color. Then we return null and the client falls back to the
+     * plain grass/plant tint. Wrong-ish, never a crash.
+     */
+    @Unique
+    private static String tintableBlock(Level level, LevelChunk chunk, int x, int y, int z, byte packed) {
+        int colorId = (packed & 0xFF) >> 2;
+        if (colorId != MapColor.GRASS.id && colorId != MapColor.PLANT.id) return null;
+
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos(x, y, z);
+        BlockState state = chunk.getBlockState(pos);
+        while (state.getMapColor(level, pos) == MapColor.NONE && pos.getY() > level.getMinY()) {
+            pos.setY(pos.getY() - 1);
+            state = chunk.getBlockState(pos);
+        }
+        if (state.getMapColor(level, pos).id != colorId) return null;
+        return BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
     }
 }

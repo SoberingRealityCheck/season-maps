@@ -36,10 +36,11 @@ final class SelfTest {
             int known = 0;
             for (byte b : layer.idx) if (b != 0) known++;
             System.out.println("[seasonmaps-selftest] pixels with a biome: " + known + " of " + Layer.SIZE);
-            System.out.println("[seasonmaps-selftest] palette: " + layer.palette);
+            System.out.println("[seasonmaps-selftest] palette: " + layer.palette + " blocks " + layer.blockPalette);
 
             Layer back = Layer.decode(layer.encode());
-            boolean roundtrip = back != null && java.util.Arrays.equals(back.idx, layer.idx) && back.palette.equals(layer.palette);
+            boolean roundtrip = back != null && java.util.Arrays.equals(back.idx, layer.idx) && back.palette.equals(layer.palette)
+                    && java.util.Arrays.equals(back.blk, layer.blk) && back.blockPalette.equals(layer.blockPalette);
             System.out.println("[seasonmaps-selftest] encode/decode roundtrip: " + roundtrip);
             System.out.println("[seasonmaps-selftest] encoded size: " + layer.encode().length + " bytes");
 
