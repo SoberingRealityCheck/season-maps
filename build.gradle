@@ -1,0 +1,45 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Serene Seasons. Compile-only: the pack installs the real one.
+	compileOnly fileTree(dir: 'libs', include: 'SereneSeasons*.jar')
+
+	// Dev runs only. Not shipped.
+	runtimeOnly fileTree(dir: 'libs', include: ['SereneSeasons*.jar', 'GlitchCore*.jar'])
+}
+
+processResources {
+	inputs.property "version", project.version
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+base {
+	archivesName = "seasonmaps"
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+// Dev server runs the self test in SelfTest.java. Not part of the shipped jar's behavior.
+loom {
+	runs {
+		server {
+			property "seasonmaps.selftest", "true"
+		}
+	}
+}

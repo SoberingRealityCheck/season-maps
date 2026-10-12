@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "seasonmaps",
+  "version": "${version}",
+  "name": "Season Maps",
+  "description": "Biome-tinted, season-aware colors for vanilla maps. Records the biome of each map pixel as you map, then tints grass, leaves and water per biome and Serene Seasons sub-season when the map is drawn.",
+  "authors": [
+    "SoberingRealityCheck"
+  ],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.seasonmaps.SeasonMapsMod"
+    ],
+    "client": [
+      "com.seasonmaps.client.SeasonMapsClient"
+    ]
+  },
+  "mixins": [
+    "seasonmaps.mixins.json",
+    {
+      "config": "seasonmaps.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "minecraft": ">=26.2",
+    "fabric-api": "*",
+    "sereneseasons": "*"
+  }
+}

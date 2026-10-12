@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com.seasonmaps.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MapItemMixin",
+    "ServerPacketMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
