@@ -30,6 +30,11 @@ public final class Layer {
 
     public final byte[] idx = new byte[SIZE];
     public final List<String> palette = new ArrayList<>();
+    // Same idea for the surface block, but only filled for grass and plant pixels (grass,
+    // leaves, flowers...). Lets the client ask the game what tint that block gets, so spruce
+    // and birch leaves, flowers and crops don't all get one "plant" green. 0 = not recorded.
+    public final byte[] blk = new byte[SIZE];
+    public final List<String> blockPalette = new ArrayList<>();
     // Bumps on every real change. Server uses it to skip sends, client to skip re-uploads.
     public int version;
     public boolean dirty;
@@ -43,22 +48,27 @@ public final class Layer {
         return last == null || last != version;
     }
 
-    /** Sets one pixel. Returns true if it changed anything. */
-    public boolean set(int px, int py, String biome) {
+    /** Sets one pixel. block may be null. Returns true if it changed anything. */
+    public boolean set(int px, int py, String biome, String block) {
         if (px < 0 || py < 0 || px >= 128 || py >= 128) return false;
-        int p = palette.indexOf(biome);
-        if (p < 0) {
-            if (palette.size() >= MAX_PALETTE) return false;
-            palette.add(biome);
-            p = palette.size() - 1;
-        }
-        byte value = (byte) (p + 1);
         int i = px + py * 128;
-        if (idx[i] == value) return false;
-        idx[i] = value;
+        byte b = (byte) (intern(palette, biome) + 1);
+        byte k = block == null ? 0 : (byte) (intern(blockPalette, block) + 1);
+        if (idx[i] == b && blk[i] == k) return false;
+        idx[i] = b;
+        blk[i] = k;
         version++;
         dirty = true;
         return true;
+    }
+
+    /** Index of s in list, adding it if new. -1 if the list is full (pixel shows as unknown). */
+    private static int intern(List<String> list, String s) {
+        int p = list.indexOf(s);
+        if (p >= 0) return p;
+        if (list.size() >= MAX_PALETTE) return -1;
+        list.add(s);
+        return list.size() - 1;
     }
 
     /** Biome id at a pixel, or null for unknown. */
@@ -67,14 +77,23 @@ public final class Layer {
         return v == 0 || v > palette.size() ? null : palette.get(v - 1);
     }
 
+    /** Surface block id at a pixel, or null if none was recorded. */
+    public String blockAt(int px, int py) {
+        int v = blk[px + py * 128] & 0xFF;
+        return v == 0 || v > blockPalette.size() ? null : blockPalette.get(v - 1);
+    }
+
     public byte[] encode() {
         try {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             try (DataOutputStream out = new DataOutputStream(new DeflaterOutputStream(bytes))) {
-                out.writeByte(1); // format version
+                out.writeByte(2); // format version
                 out.writeShort(palette.size());
                 for (String s : palette) out.writeUTF(s);
                 out.write(idx);
+                out.writeShort(blockPalette.size());
+                for (String s : blockPalette) out.writeUTF(s);
+                out.write(blk);
             }
             return bytes.toByteArray();
         } catch (IOException e) {
@@ -85,12 +104,19 @@ public final class Layer {
     /** Returns null on anything malformed. A bad layer is just "no tint", never a crash. */
     public static Layer decode(byte[] data) {
         try (DataInputStream in = new DataInputStream(new InflaterInputStream(new ByteArrayInputStream(data)))) {
-            if (in.readByte() != 1) return null;
+            int format = in.readByte();
+            if (format != 1 && format != 2) return null;
             Layer layer = new Layer();
             int n = in.readUnsignedShort();
             if (n > MAX_PALETTE) return null;
             for (int i = 0; i < n; i++) layer.palette.add(in.readUTF());
             in.readFully(layer.idx);
+            if (format == 2) { // format 1 files (biome only) just have no blocks
+                int m = in.readUnsignedShort();
+                if (m > MAX_PALETTE) return null;
+                for (int i = 0; i < m; i++) layer.blockPalette.add(in.readUTF());
+                in.readFully(layer.blk);
+            }
             layer.version = 1; // 0 means "empty, nothing to send"
             return layer;
         } catch (IOException e) {

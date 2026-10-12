@@ -41,5 +41,9 @@ loom {
 		server {
 			property "seasonmaps.selftest", "true"
 		}
+		client {
+			// ./gradlew runClient -PclientTest runs ClientSelfTest and quits
+			if (project.hasProperty('clientTest')) property "seasonmaps.clienttest", "true"
+		}
 	}
 }
